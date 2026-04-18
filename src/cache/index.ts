@@ -1,0 +1,4 @@
+export { withCache } from "./base.js"
+export type { CacheAdapter } from "./base.js"
+export { CloudflareKVCache, CloudflareCacheAPIAdapter } from "./cloudflare.js"
+export { VercelEdgeConfigCache, InMemoryCache } from "./vercel.js"
