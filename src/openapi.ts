@@ -140,10 +140,11 @@ const historyRoute = createRoute({
           schema: z.object({
             success: z.literal(true),
             data: z.array(OfferSchema.extend({
-              price_history: z.array(z.object({
-                date: z.string(),
+              history: z.array(z.object({
+                timestamp: z.string(),
                 price: z.number(),
-                availability: z.string(),
+                currency: z.string().nullable().optional(),
+                availability: z.string().optional(),
               })),
             })),
           }).openapi("HistoryResponse"),
@@ -278,7 +279,7 @@ export function createShopSavvyOpenAPIApp(options: ShopSavvyOptions & {
     const client = createClient(clientOptions)
     const { q, limit, offset } = c.req.valid("query")
     const result = await client.searchProducts(q, { limit, offset })
-    return c.json({ success: true as const, data: result.data, pagination: result.pagination })
+    return c.json({ success: true as const, data: result.data, pagination: result.pagination }, 200)
   })
 
   app.openapi(offersRoute, async (c) => {
@@ -286,7 +287,7 @@ export function createShopSavvyOpenAPIApp(options: ShopSavvyOptions & {
     const { identifier } = c.req.valid("param")
     const { retailer } = c.req.valid("query")
     const result = await client.getCurrentOffers(identifier, retailer ? { retailer } : undefined)
-    return c.json({ success: true as const, data: result.data })
+    return c.json({ success: true as const, data: result.data }, 200)
   })
 
   app.openapi(historyRoute, async (c) => {
@@ -302,18 +303,18 @@ export function createShopSavvyOpenAPIApp(options: ShopSavvyOptions & {
     })()
 
     const result = await client.getPriceHistory(identifier, startDate, endDate, retailer ? { retailer } : undefined)
-    return c.json({ success: true as const, data: result.data })
+    return c.json({ success: true as const, data: result.data }, 200)
   })
 
   app.openapi(dealsRoute, async (c) => {
     const client = createClient(clientOptions)
     const query = c.req.valid("query")
     const result = await client.getDeals(query)
-    return c.json({ success: true as const, deals: result.deals, pagination: result.pagination })
+    return c.json({ success: true as const, deals: result.deals, pagination: result.pagination }, 200)
   })
 
   app.openapi(categoriesRoute, async (c) => {
-    return c.json({ success: true as const, categories: CATEGORIES })
+    return c.json({ success: true as const, categories: CATEGORIES }, 200)
   })
 
   return app
