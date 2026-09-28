@@ -1,4 +1,5 @@
 import type { ShopSavvyDataAPI } from "@shopsavvy/sdk"
+import type { KVNamespaceLike } from "./cache/cloudflare.js"
 
 /**
  * Options for configuring the ShopSavvy middleware and router.
@@ -33,7 +34,7 @@ export interface ShopSavvyEnv {
  */
 export interface CloudflareEnv {
   SHOPSAVVY_API_KEY: string
-  SHOPSAVVY_KV?: KVNamespace
+  SHOPSAVVY_KV?: KVNamespaceLike
 }
 
 // Re-export SDK types for convenience

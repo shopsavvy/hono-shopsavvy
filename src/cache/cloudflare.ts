@@ -3,6 +3,17 @@ import type { CacheAdapter } from "./base.js"
 // ---- Cloudflare KV ----
 
 /**
+ * The subset of Cloudflare's `KVNamespace` binding this adapter uses. Declared
+ * structurally so the published types do not depend on `@cloudflare/workers-types`
+ * being installed; a real `KVNamespace` binding satisfies it.
+ */
+export interface KVNamespaceLike {
+  get(key: string): Promise<string | null>
+  put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>
+  delete(key: string): Promise<void>
+}
+
+/**
  * Cache adapter backed by Cloudflare KV.
  * Pass your KV namespace binding from `c.env`.
  *
@@ -20,7 +31,7 @@ import type { CacheAdapter } from "./base.js"
  * ```
  */
 export class CloudflareKVCache implements CacheAdapter {
-  constructor(private readonly kv: KVNamespace) {}
+  constructor(private readonly kv: KVNamespaceLike) {}
 
   async get(key: string): Promise<string | null> {
     return this.kv.get(key)
