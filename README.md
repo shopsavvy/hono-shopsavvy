@@ -76,8 +76,8 @@ GET /shopsavvy/offers/B0CHWRXH8B
     {
       "title": "Apple AirPods Pro (2nd gen)",
       "offers": [
-        { "id": "o1", "retailer": "Amazon", "price": 189.99, "availability": "in_stock", "URL": "https://..." },
-        { "id": "o2", "retailer": "Best Buy", "price": 199.99, "availability": "in_stock", "URL": "https://..." }
+        { "id": "o1", "retailer": "Amazon", "price": 189.99, "availability": "in", "URL": "https://..." },
+        { "id": "o2", "retailer": "Best Buy", "price": 199.99, "availability": "in", "URL": "https://..." }
       ]
     }
   ]
@@ -97,6 +97,32 @@ Retrieve historical pricing. Use `days` for a rolling window, or `start`/`end` f
 
 ```
 GET /shopsavvy/history/B0CHWRXH8B?days=90
+```
+
+`data` has one entry per product, each with its offers, and each offer carries its own `history` (newest first). A point's `currency` is `null` when the archive recorded none, and `availability` is omitted when it was unknown.
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "title": "Apple AirPods Pro (2nd gen)",
+      "shopsavvy": "abc123",
+      "offers": [
+        {
+          "id": "o1",
+          "retailer": "Amazon",
+          "price": 189.99,
+          "currency": "USD",
+          "history": [
+            { "timestamp": "2026-01-02T00:00:00.000Z", "price": 189.99, "currency": "USD", "availability": "in" },
+            { "timestamp": "2025-12-20T00:00:00.000Z", "price": 199.99, "currency": "USD", "availability": "in" }
+          ]
+        }
+      ]
+    }
+  ]
+}
 ```
 
 ### `GET /deals`

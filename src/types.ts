@@ -44,6 +44,7 @@ export type {
   ProductWithOffers,
   Offer,
   OfferWithHistory,
+  ProductWithOfferHistory,
   PriceHistoryEntry,
   Deal,
   DealsResponse,

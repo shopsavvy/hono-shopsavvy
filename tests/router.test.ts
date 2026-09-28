@@ -28,7 +28,17 @@ describe("createShopSavvyRouter", () => {
       data: [{ title: "AirPods Pro", shopsavvy: "abc", offers: [{ id: "o1", price: 199.99, retailer: "Amazon" }] }],
     })
     mockClient.getPriceHistory.mockResolvedValue({
-      data: [{ id: "o1", price: 199.99, price_history: [{ date: "2024-01-01", price: 199.99, availability: "in_stock" }] }],
+      data: [{
+        title: "AirPods Pro",
+        shopsavvy: "abc",
+        offers: [{
+          id: "o1",
+          retailer: "Amazon",
+          price: 199.99,
+          currency: "USD",
+          history: [{ timestamp: "2024-01-01T00:00:00.000Z", price: 199.99, currency: "USD", availability: "in" }],
+        }],
+      }],
     })
     mockClient.getDeals.mockResolvedValue({
       deals: [

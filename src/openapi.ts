@@ -14,27 +14,52 @@ const ErrorSchema = z.object({
   error: z.string(),
 }).openapi("Error")
 
+// The Data API passes these product/offer fields straight through from their records,
+// so an unknown value arrives as an explicit JSON `null`, not an absent key — the
+// schemas mirror @shopsavvy/sdk's ProductDetails / Offer types exactly.
 const ProductSchema = z.object({
   title: z.string(),
   shopsavvy: z.string(),
-  brand: z.string().optional(),
-  category: z.string().optional(),
+  brand: z.string().nullable().optional(),
+  category: z.string().nullable().optional(),
   images: z.array(z.string()).optional(),
-  barcode: z.string().optional(),
-  amazon: z.string().optional(),
-  model: z.string().optional(),
+  barcode: z.string().nullable().optional(),
+  amazon: z.string().nullable().optional(),
+  model: z.string().nullable().optional(),
+  mpn: z.string().nullable().optional(),
+  color: z.string().nullable().optional(),
 }).openapi("Product")
 
 const OfferSchema = z.object({
   id: z.string(),
-  retailer: z.string().optional(),
-  price: z.number().optional(),
-  currency: z.string().optional(),
+  retailer: z.string().nullable().optional(),
+  price: z.number().nullable().optional(),
+  currency: z.string().nullable().optional(),
   availability: z.string().optional(),
-  condition: z.string().optional(),
-  URL: z.string().optional(),
-  timestamp: z.string().optional(),
+  condition: z.string().nullable().optional(),
+  URL: z.string().nullable().optional(),
+  seller: z.string().nullable().optional(),
+  timestamp: z.string().nullable().optional(),
 }).openapi("Offer")
+
+// One historical observation. Points arrive newest first; `currency` is null on an
+// archived point with no recorded currency, `availability` is absent when unknown.
+const PriceHistoryEntrySchema = z.object({
+  timestamp: z.string(),
+  price: z.number(),
+  currency: z.string().nullable().optional(),
+  availability: z.string().optional(),
+}).openapi("PriceHistoryEntry")
+
+// GET /products/offers/history returns one entry PER PRODUCT (the same shape as the
+// offers endpoint), each offer carrying its own `history` array.
+const OfferWithHistorySchema = OfferSchema.extend({
+  history: z.array(PriceHistoryEntrySchema),
+}).openapi("OfferWithHistory")
+
+const ProductWithOfferHistorySchema = ProductSchema.extend({
+  offers: z.array(OfferWithHistorySchema),
+}).openapi("ProductWithOfferHistory")
 
 const DealSchema = z.object({
   path: z.string(),
@@ -134,19 +159,12 @@ const historyRoute = createRoute({
   },
   responses: {
     200: {
-      description: "Offers with price history",
+      description: "One entry per product, each with its offers, each offer carrying its price history (newest first)",
       content: {
         "application/json": {
           schema: z.object({
             success: z.literal(true),
-            data: z.array(OfferSchema.extend({
-              history: z.array(z.object({
-                timestamp: z.string(),
-                price: z.number(),
-                currency: z.string().nullable().optional(),
-                availability: z.string().optional(),
-              })),
-            })),
+            data: z.array(ProductWithOfferHistorySchema),
           }).openapi("HistoryResponse"),
         },
       },

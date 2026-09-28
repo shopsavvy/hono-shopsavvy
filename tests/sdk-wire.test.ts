@@ -28,7 +28,48 @@ const fixtures: Record<string, unknown> = {
   },
   "/v1/products/offers/history": {
     success: true,
-    data: [{ id: "o1", retailer: "Amazon", history: [{ timestamp: "2026-01-02T00:00:00Z", price: 299.99, currency: "USD" }] }],
+    // The real /products/offers/history shape: one entry PER PRODUCT, each offer with
+    // its own `history` (newest first; `currency` null / `availability` absent when unknown).
+    data: [{
+      title: "Sony WH-1000XM5",
+      shopsavvy: "abc123",
+      brand: "Sony",
+      category: null,
+      barcode: "027242923232",
+      amazon: "B09XS7JWHH",
+      model: "WH1000XM5/B",
+      mpn: null,
+      images: [],
+      offers: [
+        {
+          id: "o1",
+          availability: "in",
+          condition: "new",
+          retailer: "Amazon",
+          currency: "USD",
+          price: 299.99,
+          seller: null,
+          URL: "https://www.amazon.com/dp/B09XS7JWHH",
+          timestamp: "2026-01-02T00:00:00Z",
+          history: [
+            { availability: "in", price: 299.99, currency: "USD", timestamp: "2026-01-02T00:00:00Z" },
+            { price: 329.99, currency: null, timestamp: "2025-12-20T00:00:00Z" },
+          ],
+        },
+        {
+          id: "o2",
+          availability: "in",
+          condition: "used",
+          retailer: "eBay",
+          currency: "USD",
+          price: 210,
+          seller: "audio_reseller",
+          URL: "https://www.ebay.com/itm/1234567890",
+          timestamp: "2026-01-01T00:00:00Z",
+          history: [],
+        },
+      ],
+    }],
   },
   "/v1/deals": {
     success: true,
@@ -104,17 +145,29 @@ describe("OpenAPI app -> real SDK", () => {
     const app = createShopSavvyOpenAPIApp({ apiKey, baseUrl })
     const res = await app.request("/history/B09XS7JWHH?start=2026-01-01&end=2026-01-31")
     expect(res.status).toBe(200)
-    const body = await res.json() as { data: Array<{ history: Array<{ timestamp: string; price: number }> }> }
-    expect(body.data[0].history[0]).toMatchObject({ timestamp: "2026-01-02T00:00:00Z", price: 299.99 })
+    const body = await res.json() as {
+      data: Array<{ shopsavvy: string; offers: Array<{ id: string; history: Array<{ timestamp: string; price: number; currency?: string | null }> }> }>
+    }
+    expect(body.data).toHaveLength(1)
+    expect(body.data[0].shopsavvy).toBe("abc123")
+    expect(body.data[0].offers.map((o) => o.id)).toEqual(["o1", "o2"])
+    expect(body.data[0].offers[0].history[0]).toMatchObject({ timestamp: "2026-01-02T00:00:00Z", price: 299.99, currency: "USD" })
+    expect(body.data[0].offers[0].history[1]).toMatchObject({ price: 329.99, currency: null })
+    expect(body.data[0].offers[1].history).toEqual([])
 
     const spec = await (await app.request("/openapi.json")).json() as any
-    // Offer.extend() is emitted as allOf: [$ref Offer, { properties: { history } }]
-    const historyItem = spec.components.schemas.HistoryResponse.properties.data.items
-    const extension = historyItem.allOf.find((part: any) => part.properties?.history)
-    expect(extension.required).toContain("history")
-    expect(Object.keys(extension.properties.history.items.properties)).toEqual(
-      expect.arrayContaining(["timestamp", "price"]),
-    )
+    // data is an array of ProductWithOfferHistory (per product), whose offers are OfferWithHistory
+    const schemas = spec.components.schemas
+    expect(schemas.HistoryResponse.properties.data.items.$ref).toBe("#/components/schemas/ProductWithOfferHistory")
+    // Schema.extend() is emitted as allOf: [$ref Base, { properties: { ...added } }]
+    const productExtension = schemas.ProductWithOfferHistory.allOf.find((part: any) => part.properties?.offers)
+    expect(productExtension.required).toContain("offers")
+    expect(productExtension.properties.offers.items.$ref).toBe("#/components/schemas/OfferWithHistory")
+    const offerExtension = schemas.OfferWithHistory.allOf.find((part: any) => part.properties?.history)
+    expect(offerExtension.required).toContain("history")
+    expect(offerExtension.properties.history.items.$ref).toBe("#/components/schemas/PriceHistoryEntry")
+    expect(schemas.PriceHistoryEntry.required).toEqual(expect.arrayContaining(["timestamp", "price"]))
+    expect(schemas.PriceHistoryEntry.properties.currency.nullable).toBe(true)
   })
 
   it("serves Swagger UI at the docs path", async () => {
