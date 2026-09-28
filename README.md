@@ -63,7 +63,7 @@ Get current prices from all retailers for a product. The `identifier` can be a b
 
 | Param | Type | Description |
 |-------|------|-------------|
-| `retailer` | string | Filter to a specific retailer name |
+| `retailer` | string | Filter to a single retailer, by domain (e.g. `amazon.com`) |
 
 ```
 GET /shopsavvy/offers/B0CHWRXH8B
@@ -93,7 +93,7 @@ Retrieve historical pricing. Use `days` for a rolling window, or `start`/`end` f
 | `days` | number | 30 | Rolling window in days (1–365) |
 | `start` | string | — | Start date YYYY-MM-DD (overrides `days`) |
 | `end` | string | — | End date YYYY-MM-DD (overrides `days`) |
-| `retailer` | string | — | Filter to a specific retailer |
+| `retailer` | string | — | Filter to a single retailer, by domain (e.g. `amazon.com`) |
 
 ```
 GET /shopsavvy/history/B0CHWRXH8B?days=90

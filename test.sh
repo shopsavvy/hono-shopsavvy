@@ -29,11 +29,15 @@ test -f LICENSE && echo "  LICENSE exists"
 
 echo ""
 echo "Installing dependencies..."
-npm install --silent 2>/dev/null || bun install --silent
+bun install --silent
 
 echo ""
-echo "Running unit tests..."
-npx vitest run
+echo "Running typecheck + unit tests..."
+bun run test
+
+echo ""
+echo "Building..."
+bun run build
 
 if [ "$1" = "--integration" ]; then
   echo ""
