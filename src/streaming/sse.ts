@@ -42,8 +42,10 @@ export function createShopSavvySSERouter(options: ShopSavvyOptions = {}) {
     const client = createClient({ ...options, apiKey })
 
     const category = c.req.query("category")
-    const rawInterval = parseInt(c.req.query("interval") ?? "30000")
-    const interval = Math.max(5000, rawInterval)
+    // parseInt of a non-numeric value is NaN, and Math.max(5000, NaN) is NaN, which
+    // stream.sleep() treats as 0 — a hot polling loop. Fall back to the default instead.
+    const rawInterval = parseInt(c.req.query("interval") ?? "30000", 10)
+    const interval = Number.isFinite(rawInterval) ? Math.max(5000, rawInterval) : 30000
 
     return streamSSE(c, async (stream) => {
       // Track the IDs of deals already sent to avoid duplicates
@@ -67,8 +69,12 @@ export function createShopSavvySSERouter(options: ShopSavvyOptions = {}) {
 
       // Poll for new deals on the given interval
       let id = 0
-      while (!stream.writableEnded) {
+      // SSEStreamingApi exposes `aborted` (client went away) and `closed`. There is no
+      // `writableEnded`; testing it was always undefined, so the loop never ended and kept
+      // polling the ShopSavvy API for a client that had disconnected.
+      while (!stream.aborted && !stream.closed) {
         await stream.sleep(interval)
+        if (stream.aborted || stream.closed) break
 
         try {
           const page = await client.getDeals({
