@@ -51,86 +51,73 @@ const CATEGORIES = [
  * ```
  */
 export function createShopSavvyRouter(options: ShopSavvyOptions = {}) {
-  const router = new Hono()
+  const clientFor = (env: unknown) =>
+    createClient({
+      ...options,
+      apiKey: options.apiKey || (env as Record<string, unknown> | undefined)?.SHOPSAVVY_API_KEY as string | undefined,
+    })
 
-  // GET /search
-  router.get(
-    "/search",
-    zValidator("query", searchQuerySchema),
-    async (c) => {
-      const client = createClient({
-        ...options,
-        apiKey: options.apiKey || (c.env as Record<string, unknown> | undefined)?.SHOPSAVVY_API_KEY as string | undefined,
-      })
-      const { q, limit, offset } = c.req.valid("query")
-      const result = await client.searchProducts(q, { limit, offset })
-      return c.json({ success: true, data: result.data, pagination: result.pagination })
-    }
-  )
+  // Routes are chained (not registered with separate `router.get(...)` statements) so
+  // the returned Hono instance's type carries every route's path, validated input and
+  // JSON output. That is what makes `ShopSavvyAppType` usable with `hc<>()`; with
+  // unchained calls the type is a bare `Hono` and the RPC client knows no routes.
+  return new Hono()
+    // GET /search
+    .get(
+      "/search",
+      zValidator("query", searchQuerySchema),
+      async (c) => {
+        const { q, limit, offset } = c.req.valid("query")
+        const result = await clientFor(c.env).searchProducts(q, { limit, offset })
+        return c.json({ success: true as const, data: result.data, pagination: result.pagination })
+      }
+    )
+    // GET /offers/:identifier
+    .get(
+      "/offers/:identifier",
+      zValidator("param", offersParamSchema),
+      zValidator("query", offersQuerySchema),
+      async (c) => {
+        const { identifier } = c.req.valid("param")
+        const { retailer } = c.req.valid("query")
+        const result = await clientFor(c.env).getCurrentOffers(identifier, retailer ? { retailer } : undefined)
+        return c.json({ success: true as const, data: result.data })
+      }
+    )
+    // GET /history/:identifier
+    .get(
+      "/history/:identifier",
+      zValidator("param", historyParamSchema),
+      zValidator("query", historyQuerySchema),
+      async (c) => {
+        const { identifier } = c.req.valid("param")
+        const { days, retailer, start, end } = c.req.valid("query")
 
-  // GET /offers/:identifier
-  router.get(
-    "/offers/:identifier",
-    zValidator("param", offersParamSchema),
-    zValidator("query", offersQuerySchema),
-    async (c) => {
-      const client = createClient({
-        ...options,
-        apiKey: options.apiKey || (c.env as Record<string, unknown> | undefined)?.SHOPSAVVY_API_KEY as string | undefined,
-      })
-      const { identifier } = c.req.valid("param")
-      const { retailer } = c.req.valid("query")
-      const result = await client.getCurrentOffers(identifier, retailer ? { retailer } : undefined)
-      return c.json({ success: true, data: result.data })
-    }
-  )
+        const endDate = end ?? new Date().toISOString().slice(0, 10)
+        const startDate = start ?? (() => {
+          const d = new Date()
+          d.setDate(d.getDate() - days)
+          return d.toISOString().slice(0, 10)
+        })()
 
-  // GET /history/:identifier
-  router.get(
-    "/history/:identifier",
-    zValidator("param", historyParamSchema),
-    zValidator("query", historyQuerySchema),
-    async (c) => {
-      const client = createClient({
-        ...options,
-        apiKey: options.apiKey || (c.env as Record<string, unknown> | undefined)?.SHOPSAVVY_API_KEY as string | undefined,
-      })
-      const { identifier } = c.req.valid("param")
-      const { days, retailer, start, end } = c.req.valid("query")
-
-      const endDate = end ?? new Date().toISOString().slice(0, 10)
-      const startDate = start ?? (() => {
-        const d = new Date()
-        d.setDate(d.getDate() - days)
-        return d.toISOString().slice(0, 10)
-      })()
-
-      const result = await client.getPriceHistory(identifier, startDate, endDate, retailer ? { retailer } : undefined)
-      return c.json({ success: true, data: result.data })
-    }
-  )
-
-  // GET /deals
-  router.get(
-    "/deals",
-    zValidator("query", dealsQuerySchema),
-    async (c) => {
-      const client = createClient({
-        ...options,
-        apiKey: options.apiKey || (c.env as Record<string, unknown> | undefined)?.SHOPSAVVY_API_KEY as string | undefined,
-      })
-      const query = c.req.valid("query")
-      const result = await client.getDeals(query)
-      return c.json({ success: true, deals: result.deals, pagination: result.pagination })
-    }
-  )
-
-  // GET /categories
-  router.get("/categories", (c) => {
-    return c.json({ success: true, categories: CATEGORIES })
-  })
-
-  return router
+        const result = await clientFor(c.env).getPriceHistory(identifier, startDate, endDate, retailer ? { retailer } : undefined)
+        return c.json({ success: true as const, data: result.data })
+      }
+    )
+    // GET /deals
+    .get(
+      "/deals",
+      zValidator("query", dealsQuerySchema),
+      async (c) => {
+        const query = c.req.valid("query")
+        const result = await clientFor(c.env).getDeals(query)
+        return c.json({ success: true as const, deals: result.deals, pagination: result.pagination })
+      }
+    )
+    // GET /categories
+    .get("/categories", (c) => {
+      return c.json({ success: true as const, categories: CATEGORIES })
+    })
 }
 
 /**
